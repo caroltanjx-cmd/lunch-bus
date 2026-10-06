@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lunch Bus</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Doto:wght@700;900&display=swap">
+<style>
+/* Layout: one bus-stop LED sign as the hero, then the arrivals board. */
+:root {
+  --bg: #eef1ef; --surface: #ffffff; --fg: #18211d; --muted: #5b6862; --line: #d5ddd9;
+  --accent: #0b6e4f;
+  --sign: #121513; --led: #ffb000; --led-dim: #6b4d0c;
+  --seats: #1c8a4e; --standing: #b7791f; --full: #c2372b;
+  --alarm: #c2372b; --alarm-fg: #ffffff;
+  --font-led: "Doto", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --font-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1412; --surface: #171e1b; --fg: #e4ebe7; --muted: #94a39c; --line: #2a3530;
+  --accent: #3fbf8f;
+  --sign: #070908; --led: #ffb000; --led-dim: #5a410a;
+  --seats: #45c47f; --standing: #e0a446; --full: #f06a5d;
+  --alarm: #d8443a; --alarm-fg: #ffffff; color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #0f1412; --surface: #171e1b; --fg: #e4ebe7; --muted: #94a39c; --line: #2a3530;
+  --accent: #3fbf8f;
+  --sign: #070908; --led: #ffb000; --led-dim: #5a410a;
+  --seats: #45c47f; --standing: #e0a446; --full: #f06a5d;
+  --alarm: #d8443a; --alarm-fg: #ffffff; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 var(--font-body); }
+.wrap { max-width: 860px; margin: 0 auto; padding-inline: 16px; padding-block: 20px 40px; display: grid; gap: 20px; }
+h1 { margin: 0; font-size: 1.5rem; letter-spacing: -0.01em; }
+.route { color: var(--muted); }
+h2 { margin: 0 0 10px; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+
+.sign { background: var(--sign); color: var(--led); border-radius: 10px; padding: 22px 24px; display: grid; gap: 14px; }
+.sign .label { font-family: var(--font-led); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; font-size: clamp(0.9rem, 2.4vw, 1.15rem); }
+.sign .big { font-family: var(--font-led); font-weight: 900; font-size: clamp(3.4rem, 14vw, 7.5rem); line-height: 0.95; font-variant-numeric: tabular-nums; text-shadow: 0 0 18px color-mix(in srgb, var(--led) 45%, transparent); }
+.sign .sub { font-family: var(--font-led); font-weight: 700; font-size: clamp(1rem, 3vw, 1.4rem); opacity: 0.85; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+button.primary, button.secondary { font: 700 1rem var(--font-body); border-radius: 8px; padding: 12px 18px; cursor: pointer; border: 2px solid transparent; }
+button.primary { background: var(--led); color: var(--sign); }
+button.secondary { background: transparent; color: var(--led); border-color: var(--led-dim); }
+button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; }
+.hint { color: var(--muted); font-size: 0.88rem; margin: 10px 0 0; }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 700; }
+tr.picked td { background: color-mix(in srgb, var(--accent) 12%, transparent); font-weight: 700; }
+tr.out td { color: var(--muted); }
+.svc { font-family: var(--font-led); font-weight: 900; font-size: 1.15rem; }
+.chip { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 0.8rem; font-weight: 700; border: 1.5px solid currentColor; }
+.chip.SEA { color: var(--seats); } .chip.SDA { color: var(--standing); } .chip.LSD { color: var(--full); }
+.status { font-size: 0.85rem; }
+footer { color: var(--muted); font-size: 0.85rem; }
+.error { color: var(--full); }
+
+.alarm { position: fixed; inset: 0; z-index: 10; background: var(--alarm); color: var(--alarm-fg); display: grid; place-content: center; text-align: center; gap: 18px; padding: 24px; animation: flash 1s steps(2, jump-none) infinite; }
+.alarm .big { font-family: var(--font-led); font-weight: 900; font-size: clamp(3rem, 13vw, 8rem); line-height: 1; }
+.alarm .sub { font-size: clamp(1.1rem, 3vw, 1.6rem); font-weight: 700; }
+.alarm button { font: 700 1.4rem var(--font-body); padding: 18px 34px; border-radius: 12px; border: 0; background: var(--alarm-fg); color: var(--alarm); cursor: pointer; justify-self: center; }
+.alarm .soundoff { font-size: 0.95rem; opacity: 0.9; }
+@keyframes flash { 50% { background: color-mix(in srgb, var(--alarm) 70%, #000); } }
+@media (prefers-reduced-motion: reduce) { .alarm { animation: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Lunch Bus</h1>
+    <div class="route" id="route"></div>
+  </header>
+
+  <section class="sign" aria-live="polite">
+    <div class="label" id="signLabel">Loading bus times…</div>
+    <div class="big" id="signBig">--:--</div>
+    <div class="sub" id="signSub"></div>
+    <div class="actions">
+      <button class="primary" id="armBtn">We're going for lunch: turn on alarm</button>
+      <button class="secondary" id="cancelBtn" hidden>Turn off alarm</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2 id="boardTitle">Buses to VivoCity</h2>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Bus</th><th>At stop</th><th>In</th><th>Space</th><th>Status</th></tr></thead>
+        <tbody id="board"><tr><td colspan="5">Waiting for arrival times…</td></tr></tbody>
+      </table>
+    </div>
+    <p class="hint">Everyone who opens this page sees the same bus and countdown. Each person turns on their own alarm, and only open pages can ring.</p>
+  </section>
+
+  <footer><span id="fresh"></span> <span class="error" id="err"></span></footer>
+</div>
+
+<div class="alarm" id="alarm" role="alertdialog" aria-labelledby="alarmBig" hidden>
+  <div class="big" id="alarmBig">PACK UP NOW</div>
+  <div class="sub" id="alarmSub"></div>
+  <button id="dismissBtn">I'm on my way</button>
+  <div class="soundoff" id="soundOff" hidden>Sound is off. Click anywhere on this page to turn it on.</div>
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
