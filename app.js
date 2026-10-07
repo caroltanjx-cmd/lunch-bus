@@ -23,7 +23,8 @@ const store = {
   set: (k, v) => { try { localStorage.setItem(k, v); } catch {} },
   del: (k) => { try { localStorage.removeItem(k); } catch {} },
 };
-// The alarm stays on across reloads, but only for the day it was turned on.
+// The alarm stays on across reloads, but only for the day it was turned on, and only until it fires:
+// a reload after that mustn't re-arm it for a later bus.
 const today = () => new Date().toLocaleDateString("en-SG");
 const ARMED_KEY = "lunchbus.armedOn";
 
@@ -59,7 +60,7 @@ async function poll() {
 function tick() {
   const before = session.phase;
   session = step(session, buses, Date.now(), { leadMs, graceMs });
-  if (before !== "idle" && session.phase === "idle") store.del(ARMED_KEY); // bus has left
+  if (before === "armed" && session.phase !== "armed") store.del(ARMED_KEY); // alarm has fired
   render();
 }
 
