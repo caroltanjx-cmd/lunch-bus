@@ -27,16 +27,27 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 1
 
+      # The plugin marketplace is fetched at a fixed commit (outside the workspace being reviewed),
+      # because plugin_marketplaces only takes a branch-tracking .git URL or a local path.
+      # To update: replace the SHA with a newer commit of anthropics/claude-code.
+      - name: Fetch pinned plugin marketplace
+        env:
+          MARKETPLACE_SHA: 765f236fe1bfcc678e0ec59af9170fb7d6771a3a
+        run: |
+          git init -q "$RUNNER_TEMP/claude-code"
+          git -C "$RUNNER_TEMP/claude-code" fetch -q --depth 1 https://github.com/anthropics/claude-code.git "$MARKETPLACE_SHA"
+          git -C "$RUNNER_TEMP/claude-code" checkout -q FETCH_HEAD
+
       - name: Run Claude Code Review
         id: claude-review
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@58985842b834ed26087302ba27d07bc24ca8697a # v1.0.244
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
+          plugin_marketplaces: '${{ runner.temp }}/claude-code'
           plugins: 'code-review@claude-code-plugins'
           prompt: '/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
           claude_args: '--allowedTools "mcp__github_inline_comment__create_inline_comment"'
