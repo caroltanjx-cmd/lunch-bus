@@ -24,9 +24,9 @@ export function busesFrom(services, routes) {
   return buses.sort((a, b) => a.time - b.time);
 }
 
-// The earliest bus the group can still reach (at least `leadMs` away) that isn't packed.
-export function pickBus(buses, now, leadMs) {
-  return buses.find((b) => b.time - now >= leadMs && b.load !== FULL_LOAD) ?? null;
+// The earliest bus the group can still reach (at least `minMs` away) that isn't packed.
+export function pickBus(buses, now, minMs) {
+  return buses.find((b) => b.time - now >= minMs && b.load !== FULL_LOAD) ?? null;
 }
 
 // Find the same physical bus in a fresh set of arrivals: same service, closest estimate within 5 min.
@@ -53,11 +53,10 @@ export function step(session, buses, now, cfg) {
     return s;
   }
 
-  // idle or armed: keep the current target while it's still catchable and not packed,
-  // so it doesn't flip to the next bus the instant its pack-up time arrives.
-  const same = s.target && matchBus(buses, s.target);
-  const keep = same && same.load !== FULL_LOAD && same.time - now >= leadMs - graceMs;
-  s.target = keep ? same : pickBus(buses, now, leadMs);
+  // idle or armed: the pick depends only on (buses, now), never on what this page picked before,
+  // so a page opened or reloaded at any moment agrees with the rest. A bus stays picked for
+  // `graceMs` after its pack-up time, so it doesn't flip to the next bus the instant that passes.
+  s.target = pickBus(buses, now, leadMs - graceMs);
 
   if (s.phase === "armed" && s.target && now >= s.target.time - leadMs) {
     s.phase = "go";
