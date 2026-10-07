@@ -1,1 +1,2 @@
+# Local-only files that should never be committed
 node_modules/
