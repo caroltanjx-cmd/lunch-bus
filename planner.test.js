@@ -82,3 +82,13 @@ test("armed session moves to a later bus only once the picked one is too close t
   assert.equal(s.phase, "armed");
   assert.equal(s.target.time, T0 + 32 * MIN);
 });
+
+test("a page opened later picks the same bus as one that has been open all along", () => {
+  const buses = busesFrom([{ no: "145", next: arrival(20), next2: arrival(30) }], ["145"]);
+  let early = { phase: "idle", target: null, coming: {} };
+  for (let t = T0; t <= T0 + 6 * MIN; t += 15_000) {
+    early = step(early, buses, t, appCfg);
+    const late = step({ phase: "idle", target: null, coming: {} }, buses, t, appCfg); // just opened or reloaded
+    assert.equal(late.target?.time, early.target?.time, `disagree at +${(t - T0) / 1000}s`);
+  }
+});
