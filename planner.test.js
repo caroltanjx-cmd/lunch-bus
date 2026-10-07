@@ -60,3 +60,25 @@ test("target switches to a later bus if it fills up before pack-up", () => {
   assert.equal(s.target.time, T0 + 32 * MIN);
   assert.equal(s.phase, "armed");
 });
+
+const appCfg = { leadMs: 17 * MIN, graceMs: 2 * MIN }; // grace = buffer, as app.js passes it
+const arrivalAt = (ms) => ({ ...arrival(0), time: new Date(T0 + ms).toISOString() });
+
+test("armed session still fires go when the estimate jumps earlier just before pack-up", () => {
+  let s = step({ phase: "armed", target: null, coming: {} },
+    busesFrom([{ no: "145", next: arrival(20), next2: arrival(32) }], ["145"]), T0, appCfg);
+  // At +2:57 the bus is now due at +18:54, 15:57 away: under the old 60s grace, but still reachable.
+  const jumped = busesFrom([{ no: "145", next: arrivalAt(18.9 * MIN), next2: arrival(32) }], ["145"]);
+  s = step(s, jumped, T0 + 2.95 * MIN, appCfg);
+  assert.equal(s.phase, "go");
+  assert.equal(s.target.time, T0 + 18.9 * MIN);
+});
+
+test("armed session moves to a later bus only once the picked one is too close to reach", () => {
+  let s = step({ phase: "armed", target: null, coming: {} },
+    busesFrom([{ no: "145", next: arrival(20), next2: arrival(32) }], ["145"]), T0, appCfg);
+  // At +2 the estimate drops to +16, 14 min away: less than the 15 min walk.
+  s = step(s, busesFrom([{ no: "145", next: arrival(16), next2: arrival(32) }], ["145"]), T0 + 2 * MIN, appCfg);
+  assert.equal(s.phase, "armed");
+  assert.equal(s.target.time, T0 + 32 * MIN);
+});

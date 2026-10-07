@@ -11,6 +11,9 @@ const CONFIG = {
   bufferMin: 2, // slack so the group isn't sprinting
 };
 const leadMs = (CONFIG.walkMin + CONFIG.bufferMin) * 60_000;
+// Keep a picked bus until it's closer than the walk, so a late estimate eats into the buffer
+// instead of quietly moving the group to the next bus.
+const graceMs = CONFIG.bufferMin * 60_000;
 const POLL_MS = 15_000; // arrivelah caches for 15s
 const LOAD = { SEA: "Seats", SDA: "Standing", LSD: "Full" };
 
@@ -55,7 +58,7 @@ async function poll() {
 
 function tick() {
   const before = session.phase;
-  session = step(session, buses, Date.now(), { leadMs });
+  session = step(session, buses, Date.now(), { leadMs, graceMs });
   if (before !== "idle" && session.phase === "idle") store.del(ARMED_KEY); // bus has left
   render();
 }
